@@ -42,21 +42,18 @@ func (c *cache) pushJob(ttl *time.Duration) {
 }
 
 func (c *cache) push() {
-	list := make(map[any]*l)
+	list := make(map[any][]any)
 	c.Lock()
 	for k, v := range c.list {
-		list[k] = v
+		k, v := k, v
+		list[k] = v.data
 	}
 	c.list = make(map[any]*l)
 	c.Unlock()
 
-	for k, v := range c.list {
-		k := k
-		data := v.data
-
-		delete(c.list, k)
-
-		c.fn(k, data)
+	for k, v := range list {
+		k, v := k, v
+		c.fn(k, v)
 
 	}
 }
