@@ -17,9 +17,9 @@ func TestNew(t *testing.T) {
 			t.Errorf("data length should be 4, but got %v", len(data))
 		}
 	})
-	compact("key1", "data1")
-	compact("key1", "data2")
-	compact("key1", "data3")
-	compact("key1", "data4")
-	time.Sleep(2 * time.Second)
+	compact.Set("key1", "data1")
+	compact.Set("key1", "data2")
+	compact.Set("key1", "data3")
+	compact.Set("key1", "data4")
+	compact.Close()
 }

@@ -5,48 +5,67 @@ import (
 	"time"
 )
 
-func New(ttl *time.Duration, fn func(key any, data []any)) func(key any, data any) {
-	type l struct {
-		data []any
-		ttl  time.Time
-		sync.RWMutex
-	}
+type EasyCompact interface {
+	Set(key any, data any)
+	Close()
+}
 
-	type cache struct {
-		list   map[any]*l
-		update func(in any, data any)
-		sync.RWMutex
-	}
+type l struct {
+	data []any
+	ttl  time.Time
+	sync.RWMutex
+}
+
+type cache struct {
+	list   map[any]*l
+	update func(in any, data any)
+	sync.RWMutex
+	fn func(key any, data []any)
+}
+
+func New(ttl *time.Duration, fn func(key any, data []any)) EasyCompact {
 
 	var c = cache{}
 	c.list = make(map[any]*l)
+	c.fn = fn
+
+	go c.pushJob(ttl)
+
+	return &c
+}
+func (c *cache) pushJob(ttl *time.Duration) {
 
 	ticker := time.NewTicker(*ttl)
-
-	go func(c *cache) {
-		for range ticker.C {
-			for k, v := range c.list {
-				k := k
-				data := v.data
-
-				delete(c.list, k)
-
-				fn(k, data)
-
-			}
-		}
-	}(&c)
-
-	return func(key any, data any) {
-		c.Lock()
-		defer c.Unlock()
-
-		d, ok := c.list[key]
-		if !ok {
-			c.list[key] = &l{}
-			d = c.list[key]
-		}
-
-		d.data = append(d.data, data)
+	for range ticker.C {
+		c.push()
 	}
+}
+
+func (c *cache) push() {
+	for k, v := range c.list {
+		k := k
+		data := v.data
+
+		delete(c.list, k)
+
+		c.fn(k, data)
+
+	}
+}
+
+func (c *cache) Set(key any, data any) {
+	c.Lock()
+	defer c.Unlock()
+
+	d, ok := c.list[key]
+	if !ok {
+		c.list[key] = &l{}
+		d = c.list[key]
+	}
+
+	d.data = append(d.data, data)
+}
+
+func (c *cache) Close() {
+	c.push()
 }
